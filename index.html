@@ -1,0 +1,148 @@
+<!doctype html>
+<html>
+<head>
+    <title>Socket.IO chat</title>
+    <link rel="stylesheet" type="text/css" href="main.css">
+
+</head>
+<body>
+<div id="top">Chat Application</div>
+<div id="getNick">
+    <form name="usernameForm"><input type="text" id="n" autocomplete="off" placeholder="Enter your nickname here"/>
+        <button>Confirm</button>
+    </form>
+</div>
+<div id="main"><div class="info" id="username"></div>
+    <div class="LRcontain">
+
+        <div id="left">
+
+            <ul id="messages"></ul>
+        </div>
+        <div id="right">
+            <div class="info"><h4>Current Users</h4></div>
+            <ul id="users"></ul>
+        </div>
+    </div>
+    <div class="input">
+        <form name="chatForm"><input type="text" id="m" autocomplete="off" placeholder="Your message here"/>
+            <button>Send</button>
+        </form>
+    </div>
+</div>
+<div id="foot"><h4>Application Produced by Austin Wattling</h4></div>
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+<script>
+    let self_username = "x";
+    let self_color = "#6A5ACD";
+    $(function () {
+        var socket = io();
+        let preName = getCookie('preName');
+        if(preName != ''){
+            socket.emit('newuser', preName, function (data){
+                if(data){
+                    // yay username not being used
+                    self_username = preName;
+                    setCookie('preName', self_username, 30);
+                    $('#getNick').hide();
+                    $('#main').show();
+                }
+                else{
+                    self_username = "x";
+                }
+            });
+        }
+        $('form').submit(function(){
+            // Catches the username form //
+            if(self_username === "x"){
+                socket.emit('newuser', $('#n').val(), function(data){
+                    if(data) {
+                        self_username = $('#n').val();
+                        setCookie('preName', self_username, 30);
+                        $('#getNick').hide();
+                        $('#main').show();
+                    }
+                    else{
+                        $('#getNick').append("Username already in use. Please try again");
+                        // Should print error for user // Nickname invalid //
+                    }
+                });
+            }// Catches the chat form submission//
+            else{
+                socket.emit('chat message', $('#m').val(), self_username, self_color);
+                $('#m').val('');
+            }
+            return false;
+        });
+
+        // Handles the receipt of a message from the server//;
+        socket.on('chat message', function(msg){
+            let value = "<li>";
+            let date = new Date(msg.timestamp);
+            value += date.getHours() + ":";
+            value +=  date.getMinutes()+ " ";
+            value += "<span style='color:";
+            value += msg.color + "'>";
+            value += msg.user + "</span>: ";
+            if(msg.user === self_username){
+                value += "<strong>" + msg.content + "</strong>";
+            }
+            else{
+                value += msg.content;
+            }
+
+            value += "</li>"
+            // Adds msg to the running html list //
+            $('#messages').append(value);
+            $('#left').scrollTop($('#messages').height());
+        });
+
+        // Handles this as a client //
+        socket.on('createUser', function (username) {
+            self_username = username;
+            //setCookie('preName', self_username, 30);
+            $("#username").html("<h4>Your username is " + self_username + "</h4>");
+        });
+
+        socket.on('changeColor', function (color) {
+            self_color = color;
+            console.log("Color changed");
+        });
+
+        // Handles the creation of another user //
+        socket.on('updateUsers', function (usernames) {
+            let html = "";
+            for(let y in usernames){
+                html += "<li>" + usernames[y];
+            }
+            $('#users').html(html);
+        });
+
+        function setCookie(cname, cvalue, exdays) {
+            let d = new Date();
+            d.setTime(d.getTime() + exdays * 24 * 60 * 60 * 1000);
+            let expires = 'expires=' + d.toUTCString();
+            document.cookie = cname + '=' + cvalue + ';' + expires + ';path=/';
+        }
+
+        function getCookie(cname) {
+            let name = cname + '=';
+            let decodedCookie = decodeURIComponent(document.cookie);
+            let ca = decodedCookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) == ' ') {
+                    c = c.substring(1);
+                }
+                if (c.indexOf(name) == 0) {
+                    return c.substring(name.length, c.length);
+                }
+            }
+            return '';
+        }
+
+    });
+</script>
+</body>
+</html>
